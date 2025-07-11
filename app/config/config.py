@@ -6,7 +6,7 @@ import datetime
 import json
 from typing import Any, Dict, List, Type, get_args, get_origin
 
-from pydantic import ValidationError, ValidationInfo, field_validator
+from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings
 from sqlalchemy import insert, select, update
 
@@ -38,30 +38,99 @@ class Settings(BaseSettings):
     MYSQL_DATABASE: str = ""
     MYSQL_SOCKET: str = ""
 
-    # 验证 MySQL 配置
-    @field_validator(
-        "MYSQL_HOST", "MYSQL_PORT", "MYSQL_USER", "MYSQL_PASSWORD", "MYSQL_DATABASE"
+    # API相关配置 - 原始字符串值
+    api_keys_str: str = Field(alias="API_KEYS")
+    allowed_tokens_str: str = Field(alias="ALLOWED_TOKENS")
+    vertex_api_keys_str: str = Field(default="", alias="VERTEX_API_KEYS")
+    proxies_str: str = Field(default="", alias="PROXIES")
+    search_models_str: str = Field(default="gemini-2.0-flash-exp", alias="SEARCH_MODELS")
+    image_models_str: str = Field(default="gemini-2.0-flash-exp", alias="IMAGE_MODELS")
+    filtered_models_str: str = Field(
+        default=",".join(DEFAULT_FILTER_MODELS), alias="FILTERED_MODELS"
     )
-    def validate_mysql_config(cls, v: Any, info: ValidationInfo) -> Any:
-        if info.data.get("DATABASE_TYPE") == "mysql":
-            if v is None or v == "":
-                raise ValueError(
-                    "MySQL configuration is required when DATABASE_TYPE is 'mysql'"
-                )
-        return v
+    thinking_models_str: str = Field(default="", alias="THINKING_MODELS")
 
-    # API相关配置
-    API_KEYS: List[str]
-    ALLOWED_TOKENS: List[str]
+    # API相关配置 - 程序使用的计算属性
+    @computed_field
+    @property
+    def API_KEYS(self) -> List[str]:
+        return [item.strip() for item in self.api_keys_str.split(",") if item.strip()]
+
+    @API_KEYS.setter
+    def API_KEYS(self, value: List[str]):
+        self.api_keys_str = ",".join(value)
+
+    @computed_field
+    @property
+    def ALLOWED_TOKENS(self) -> List[str]:
+        return [item.strip() for item in self.allowed_tokens_str.split(",") if item.strip()]
+
+    @ALLOWED_TOKENS.setter
+    def ALLOWED_TOKENS(self, value: List[str]):
+        self.allowed_tokens_str = ",".join(value)
+
+    @computed_field
+    @property
+    def VERTEX_API_KEYS(self) -> List[str]:
+        return [item.strip() for item in self.vertex_api_keys_str.split(",") if item.strip()]
+
+    @VERTEX_API_KEYS.setter
+    def VERTEX_API_KEYS(self, value: List[str]):
+        self.vertex_api_keys_str = ",".join(value)
+
+    @computed_field
+    @property
+    def PROXIES(self) -> List[str]:
+        return [item.strip() for item in self.proxies_str.split(",") if item.strip()]
+
+    @PROXIES.setter
+    def PROXIES(self, value: List[str]):
+        self.proxies_str = ",".join(value)
+
+    @computed_field
+    @property
+    def SEARCH_MODELS(self) -> List[str]:
+        return [item.strip() for item in self.search_models_str.split(",") if item.strip()]
+
+    @SEARCH_MODELS.setter
+    def SEARCH_MODELS(self, value: List[str]):
+        self.search_models_str = ",".join(value)
+
+    @computed_field
+    @property
+    def IMAGE_MODELS(self) -> List[str]:
+        return [item.strip() for item in self.image_models_str.split(",") if item.strip()]
+
+    @IMAGE_MODELS.setter
+    def IMAGE_MODELS(self, value: List[str]):
+        self.image_models_str = ",".join(value)
+
+    @computed_field
+    @property
+    def FILTERED_MODELS(self) -> List[str]:
+        return [item.strip() for item in self.filtered_models_str.split(",") if item.strip()]
+
+    @FILTERED_MODELS.setter
+    def FILTERED_MODELS(self, value: List[str]):
+        self.filtered_models_str = ",".join(value)
+
+    @computed_field
+    @property
+    def THINKING_MODELS(self) -> List[str]:
+        return [item.strip() for item in self.thinking_models_str.split(",") if item.strip()]
+
+    @THINKING_MODELS.setter
+    def THINKING_MODELS(self, value: List[str]):
+        self.thinking_models_str = ",".join(value)
+
     BASE_URL: str = f"https://generativelanguage.googleapis.com/{API_VERSION}"
     AUTH_TOKEN: str = ""
     MAX_FAILURES: int = 3
     TEST_MODEL: str = DEFAULT_MODEL
     TIME_OUT: int = DEFAULT_TIMEOUT
     MAX_RETRIES: int = MAX_RETRIES
-    PROXIES: List[str] = []
-    PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY: bool = True  # 是否使用一致性哈希来选择代理
-    VERTEX_API_KEYS: List[str] = []
+    PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY: bool = True
+
     VERTEX_EXPRESS_BASE_URL: str = "https://aiplatform.googleapis.com/v1beta1/publishers/google"
 
     # 智能路由配置
@@ -71,13 +140,9 @@ class Settings(BaseSettings):
     CUSTOM_HEADERS: Dict[str, str] = {}
 
     # 模型相关配置
-    SEARCH_MODELS: List[str] = ["gemini-2.0-flash-exp"]
-    IMAGE_MODELS: List[str] = ["gemini-2.0-flash-exp"]
-    FILTERED_MODELS: List[str] = DEFAULT_FILTER_MODELS
     TOOLS_CODE_EXECUTION_ENABLED: bool = False
     SHOW_SEARCH_LINK: bool = True
     SHOW_THINKING_PROCESS: bool = True
-    THINKING_MODELS: List[str] = []
     THINKING_BUDGET_MAP: Dict[str, float] = {}
 
     # TTS相关配置
@@ -122,7 +187,6 @@ class Settings(BaseSettings):
     AUTO_DELETE_REQUEST_LOGS_ENABLED: bool = False
     AUTO_DELETE_REQUEST_LOGS_DAYS: int = 30
     SAFETY_SETTINGS: List[Dict[str, str]] = DEFAULT_SAFETY_SETTINGS
-
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
