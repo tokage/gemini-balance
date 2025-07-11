@@ -170,7 +170,13 @@ def _build_payload(model: str, request: GeminiRequest) -> Dict[str, Any]:
         if model.endswith("-non-thinking"):
             payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0} 
         elif model in settings.THINKING_BUDGET_MAP:
-            payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": settings.THINKING_BUDGET_MAP.get(model,1000)}
+            if settings.SHOW_THINKING_PROCESS:
+                payload["generationConfig"]["thinkingConfig"] = {
+                    "thinkingBudget": settings.THINKING_BUDGET_MAP.get(model,1000),
+                    "includeThoughts": True
+                }
+            else:
+                payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": settings.THINKING_BUDGET_MAP.get(model,1000)}
 
     return payload
 

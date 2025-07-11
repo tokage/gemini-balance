@@ -166,9 +166,13 @@ def _build_payload(
     if request.model.endswith("-non-thinking"):
         payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
     if request.model in settings.THINKING_BUDGET_MAP:
-        payload["generationConfig"]["thinkingConfig"] = {
-            "thinkingBudget": settings.THINKING_BUDGET_MAP.get(request.model, 1000)
-        }
+        if settings.SHOW_THINKING_PROCESS:
+            payload["generationConfig"]["thinkingConfig"] = {
+                "thinkingBudget": settings.THINKING_BUDGET_MAP.get(request.model, 1000),
+                "includeThoughts": True
+            }
+        else:
+            payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": settings.THINKING_BUDGET_MAP.get(request.model, 1000)}
 
     if (
         instruction
