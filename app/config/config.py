@@ -141,6 +141,9 @@ class Settings(BaseSettings):
 
     # 模型相关配置
     TOOLS_CODE_EXECUTION_ENABLED: bool = False
+    # 是否启用网址上下文
+    URL_CONTEXT_ENABLED: bool = True
+    URL_CONTEXT_MODELS: List[str] = ["gemini-2.5-pro","gemini-2.5-flash","gemini-2.5-flash-lite","gemini-2.0-flash","gemini-2.0-flash-live-001"]
     SHOW_SEARCH_LINK: bool = True
     SHOW_THINKING_PROCESS: bool = True
     THINKING_BUDGET_MAP: Dict[str, float] = {}
@@ -187,6 +190,11 @@ class Settings(BaseSettings):
     AUTO_DELETE_REQUEST_LOGS_ENABLED: bool = False
     AUTO_DELETE_REQUEST_LOGS_DAYS: int = 30
     SAFETY_SETTINGS: List[Dict[str, str]] = DEFAULT_SAFETY_SETTINGS
+
+    # Files API
+    FILES_CLEANUP_ENABLED: bool = True
+    FILES_CLEANUP_INTERVAL_HOURS: int = 1
+    FILES_USER_ISOLATION_ENABLED: bool = True
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

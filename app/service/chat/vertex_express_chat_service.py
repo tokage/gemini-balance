@@ -58,6 +58,21 @@ def _clean_json_schema_properties(obj: Any) -> Any:
 def _build_tools(model: str, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     """构建工具"""
     
+    def _has_function_call(contents: List[Dict[str, Any]]) -> bool:
+        """检查内容中是否包含 functionCall"""
+        if not contents or not isinstance(contents, list):
+            return False
+        for content in contents:
+            if not content or not isinstance(content, dict) or "parts" not in content:
+                continue
+            parts = content.get("parts", [])
+            if not parts or not isinstance(parts, list):
+                continue
+            for part in parts:
+                if isinstance(part, dict) and "functionCall" in part:
+                    return True
+        return False
+    
     def _merge_tools(tools: List[Dict[str, Any]]) -> Dict[str, Any]:
         record = dict()
         for item in tools:
@@ -97,13 +112,30 @@ def _build_tools(model: str, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
         tool["codeExecution"] = {}
     if model.endswith("-search"):
         tool["googleSearch"] = {}
+        
+    real_model = _get_real_model(model)
+    if real_model in settings.URL_CONTEXT_MODELS and settings.URL_CONTEXT_ENABLED:
+        tool["urlContext"] = {}
 
     # 解决 "Tool use with function calling is unsupported" 问题
-    if tool.get("functionDeclarations"):
+    if tool.get("functionDeclarations") or _has_function_call(payload.get("contents", [])):
         tool.pop("googleSearch", None)
         tool.pop("codeExecution", None)
+        tool.pop("urlContext", None)
 
     return [tool] if tool else []
+
+
+def _get_real_model(model: str) -> str:
+    if model.endswith("-search"):
+        model = model[:-7]
+    if model.endswith("-image"):
+        model = model[:-6]
+    if model.endswith("-non-thinking"):
+        model = model[:-13]
+    if "-search" in model and "-non-thinking" in model:
+        model = model[:-20]
+    return model
 
 
 def _get_safety_settings(model: str) -> List[Dict[str, str]]:
@@ -115,7 +147,7 @@ def _get_safety_settings(model: str) -> List[Dict[str, str]]:
 
 def _build_payload(model: str, request: GeminiRequest) -> Dict[str, Any]:
     """构建请求payload"""
-    request_dict = request.model_dump()
+    request_dict = request.model_dump(exclude_none=False)
     if request.generationConfig:
         if request.generationConfig.maxOutputTokens is None:
             # 如果未指定最大输出长度，则不传递该字段，解决截断的问题
@@ -133,10 +165,29 @@ def _build_payload(model: str, request: GeminiRequest) -> Dict[str, Any]:
         payload.pop("systemInstruction")
         payload["generationConfig"]["responseModalities"] = ["Text", "Image"]
         
-    if model.endswith("-non-thinking"):
-        payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0} 
-    if model in settings.THINKING_BUDGET_MAP:
-        payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": settings.THINKING_BUDGET_MAP.get(model,1000)}
+    # 处理思考配置：优先使用客户端提供的配置，否则使用默认配置
+    client_thinking_config = None
+    if request.generationConfig and request.generationConfig.thinkingConfig:
+        client_thinking_config = request.generationConfig.thinkingConfig
+    
+    if client_thinking_config is not None:
+        # 客户端提供了思考配置，直接使用
+        payload["generationConfig"]["thinkingConfig"] = client_thinking_config
+    else:
+        # 客户端没有提供思考配置，使用默认配置    
+        if model.endswith("-non-thinking"):
+            if "gemini-2.5-pro" in model:
+                payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 128}
+            else:
+                payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0} 
+        elif _get_real_model(model) in settings.THINKING_BUDGET_MAP:
+            if settings.SHOW_THINKING_PROCESS:
+                payload["generationConfig"]["thinkingConfig"] = {
+                    "thinkingBudget": settings.THINKING_BUDGET_MAP.get(model,1000),
+                    "includeThoughts": True
+                }
+            else:
+                payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": settings.THINKING_BUDGET_MAP.get(model,1000)}
 
     return payload
 
