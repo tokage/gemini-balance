@@ -206,7 +206,7 @@ def _build_payload(
         else:
             payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0} 
     
-    if _get_real_model(request.model) in settings.THINKING_BUDGET_MAP:
+    elif _get_real_model(request.model) in settings.THINKING_BUDGET_MAP:
         if settings.SHOW_THINKING_PROCESS:
             payload["generationConfig"]["thinkingConfig"] = {
                 "thinkingBudget": settings.THINKING_BUDGET_MAP.get(request.model, 1000),
@@ -511,7 +511,7 @@ class OpenAIChatService:
                     f"Streaming API call failed with error: {error_log_msg}. Attempt {retries} of {max_retries} with key {current_attempt_key}"
                 )
 
-                match = re.search(r"status code (\\d+)", error_log_msg)
+                match = re.search(r"status code (\d+)", error_log_msg)
                 if match:
                     status_code = int(match.group(1))
                 else:
